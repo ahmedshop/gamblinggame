@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bouncing Rock Paper Scissors</title>
+</head>
+<body>
+<center>
+    <canvas id="gc" width="640" height="600"></canvas><br>
+    <button id="startButton">Start</button>
+</center>
+<script type="text/javascript">
+    const balls = [];
+    const numBallsPerGroup = 10;
+    const ballSize = 40;
+    const speed = 5;
+    const centerX = 320;
+    const centerY = 240;
+    const radius = 200;
+    let isGameRunning = false;
+    let cc;
+    const images = {};
+
+    // Load images for rock, paper, and scissors
+    function loadImages(callback) {
+        const imgNames = ["rock", "paper", "scissors"];
+        let loadedCount = 0;
+
+        imgNames.forEach(name => {
+            const img = new Image();
+            img.src = `${name}.png`; // Ensure images are named rock.png, paper.png, scissors.png in the same folder
+            img.onload = () => {
+                images[name] = img;
+                loadedCount++;
+                if (loadedCount === imgNames.length) callback(); // Call callback when all images are loaded
+            };
+        });
+    }
+
+    function initialize() {
+        const c = document.getElementById('gc');
+        cc = c.getContext('2d');
+
+        document.getElementById('startButton').addEventListener('click', startGame);
+
+        // Load images, then draw the initial setup once loaded
+        loadImages(drawInitialSetup);
+    }
+
+    function drawInitialSetup() {
+        const c = document.getElementById('gc');
+        
+        // Draw the circular boundary
+        cc.fillStyle = 'black';
+        cc.fillRect(0, 0, c.width, c.height);
+        cc.strokeStyle = 'white';
+        cc.lineWidth = 2;
+        cc.beginPath();
+        cc.arc(centerX, centerY, radius, 0, 2 * Math.PI);
+        cc.closePath();
+        cc.stroke();
+
+        // Initialize balls in starting positions with images
+        createBalls(centerX, centerY - radius + 20, images.rock, "rock", numBallsPerGroup);
+        createBalls(centerX - radius + 44, centerY + 90, images.paper, "paper", numBallsPerGroup);
+        createBalls(centerX + radius - 44, centerY + 90, images.scissors, "scissors", numBallsPerGroup);
+
+        // Draw each ball with its image
+        balls.forEach(ball => {
+            cc.drawImage(ball.image, ball.x - ballSize / 2, ball.y - ballSize / 2, ballSize, ballSize);
+        });
+    }
+
+    function startGame() {
+        if (!isGameRunning) {
+            isGameRunning = true;
+            setInterval(update, 1000 / 30);  // 30 fps
+        }
+    }
+
+    function createBalls(startX, startY, image, type, numBalls) {
+        for (let i = 0; i < numBalls; i++) {
+            const angle = Math.random() * 2 * Math.PI;
+            balls.push({
+                x: startX,
+                y: startY,
+                xVel: Math.cos(angle) * speed,
+                yVel: Math.sin(angle) * speed,
+                image: image,
+                type: type
+            });
+        }
+    }
+
+    function update() {
+        const c = document.getElementById('gc');
+
+        // Clear the canvas
+        cc.fillStyle = 'black';
+        cc.fillRect(0, 0, c.width, c.height);
+
+        // Draw the circular boundary
+        cc.strokeStyle = 'white';
+        cc.lineWidth = 2;
+        cc.beginPath();
+        cc.arc(centerX, centerY, radius, 0, 2 * Math.PI);
+        cc.closePath();
+        cc.stroke();
+
+        // Update each ball's position and draw with images
+        for (let i = 0; i < balls.length; i++) {
+            let ball = balls[i];
+            ball.x += ball.xVel;
+            ball.y += ball.yVel;
+
+            // Check for collisions with other balls and change images if necessary
+            for (let j = i + 1; j < balls.length; j++) {
+                let otherBall = balls[j];
+                if (areBallsColliding(ball, otherBall)) {
+                    handleCollision(ball, otherBall);
+                }
+            }
+
+            // Check for collision with the circular boundary
+            const dx = ball.x - centerX;
+            const dy = ball.y - centerY;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+
+            if (distance + ballSize / 2 > radius) {
+                // Reflect ball off the circular boundary
+                const angle = Math.atan2(dy, dx);
+                const normalX = Math.cos(angle);
+                const normalY = Math.sin(angle);
+                const dot = ball.xVel * normalX + ball.yVel * normalY;
+                ball.xVel -= 2 * dot * normalX;
+                ball.yVel -= 2 * dot * normalY;
+
+                // Move the ball back inside the circle
+                const overlap = distance + ballSize / 2 - radius;
+                ball.x -= normalX * overlap;
+                ball.y -= normalY * overlap;
+            }
+
+            // Draw the ball with its image
+            cc.drawImage(ball.image, ball.x - ballSize / 2, ball.y - ballSize / 2, ballSize, ballSize);
+        }
+
+        // Check for winner condition (all balls are the same type)
+        const allSameType = balls.every((ball, _, array) => ball.type === array[0].type);
+        if (allSameType) {
+            cc.fillStyle = 'white';
+            cc.font = '24px Arial';
+            cc.fillText('Winner: ' + balls[0].type, 250, 500);
+        }
+    }
+
+    function areBallsColliding(ball1, ball2) {
+        const dx = ball1.x - ball2.x;
+        const dy = ball1.y - ball2.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        return distance < ballSize;
+    }
+
+    function handleCollision(ball1, ball2) {
+        // Change type based on rock-paper-scissors rules
+        const beats = {
+            "rock": "scissors",
+            "scissors": "paper",
+            "paper": "rock"
+        };
+
+        if (beats[ball1.type] === ball2.type) {
+            ball2.type = ball1.type;
+            ball2.image = ball1.image;
+        } else if (beats[ball2.type] === ball1.type) {
+            ball1.type = ball2.type;
+            ball1.image = ball2.image;
+        }
+    }
+
+    window.onload = initialize;
+</script>
+
+</body>
+</html>
